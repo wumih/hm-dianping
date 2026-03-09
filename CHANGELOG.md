@@ -1,6 +1,6 @@
 # 项目更新日志 (Changelog)
 
-## 🚀 Feat: 引入双层拦截器架构，重构用户登录鉴权防护 (2024-03-10)
+## 🚀 Feat: 引入双层拦截器架构，重构用户登录鉴权防护 (d644c8cf507ca84b9a5785fc0d5abc79f2edd10b)
 **摘要 (Summary):**
 本次提交核心解决了系统无登录鉴权的问题，通过引入基于 ThreadLocal 和双层 Spring MVC Interceptor 的架构，实现了高安全等级的 Token 校验与无感续期，同时修复了前端的用户协议 Bug。
 
