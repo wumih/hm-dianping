@@ -2,6 +2,24 @@
 
 ---
 
+## [v1.4.0] - 2026-03-18 | 集群环境分布式锁 (V1.0)
+
+### ✨ 新增功能
+
+#### 分布式锁 `SimpleRedisLock`
+- **新增** `ILock` 接口，规范化分布式锁的 `tryLock` 和 `unlock` 行为。
+- **新增** `SimpleRedisLock` 基础实现类 (V1.0)：
+  - 利用 Redis `SETNX` (对应 Spring Data Redis 的 `setIfAbsent`) 实现并发互斥。
+  - 加锁时自动设置 `timeoutSec` 过期时间，防止由于服务器宕机引发的死锁问题。
+
+### 🔧 重构
+
+#### 优惠券秒杀下单 (`VoucherOrderServiceImpl`)
+- 废弃单机版的 `synchronized` 锁，全面接入 `SimpleRedisLock`。
+- 修改 `seckillVoucher` 逻辑，在 `try-finally` 结构中保证业务异常中断也能安全 `unlock`。
+
+---
+
 ## [v1.3.0] - 2026-03-18 | 秒杀下单并发安全处理
 
 ### ✨ 新增功能
@@ -16,8 +34,7 @@
   - 利用 `AopContext.currentProxy()` 强行获取当前类的 Spring 代理对象。
   - 借代理对象调用受 `@Transactional` 保护的内层 `createVoucherOrder` 方法，完美解决“锁和事务顺序”引起的空窗期脏读问题（确保**先上锁 -> 再开事务 -> 提交事务 -> 后解锁**）。
 
-### 🔧 遗留问题 / 待修复 (Bug)
-- ⚠️ **严重并发隐患发现**：外层方法 `seckillVoucher` 目前错误地声明了 `@Transactional` 注解。这会导致 Spring 在最外层开启整个大事务，从而使得精心设计的内层锁提前释放（事务包裹了锁），引发并发超卖问题。暂不修复，留待后续迭代处理。
+
 
 ---
 
