@@ -9,10 +9,9 @@ import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
-import com.hmdp.utils.RedisConstants;
-import com.hmdp.utils.SimpleRedisLock;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +36,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private RedisIdWorker redisIdWorker;
 
     @Resource
-    private StringRedisTemplate stringRedisTemplate;
+    private RedissonClient redissonClient;
 
     @Override
     public Result seckillVoucher(Long voucherId) {
@@ -60,13 +59,16 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
 
         Long userId = UserHolder.getUser().getId();
-        // 创建锁对象
-        SimpleRedisLock lock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
-        // 获取锁
-        boolean isLock = lock.tryLock(1200);
+
+        // 创建锁对象（不再亲自实例化 SimpleRedisLock，而是向 Redisson 索要 RLock）
+        RLock lock = redissonClient.getLock("lock:order:" + userId);
+
+        // 获取锁 (无参 tryLock 代表：获取锁的最大等待时间=0，但是具备 WatchDog 自动续期机制)
+        boolean isLock = lock.tryLock();
+
         // 判断是否获取锁成功
         if (!isLock) {
-            // 获取锁失败，返回错误或重试
+            // 获取锁失败，说明该用户在并发抢单，返回错误提示
             return Result.fail("一人只允许限购一单！");
         }
         try {

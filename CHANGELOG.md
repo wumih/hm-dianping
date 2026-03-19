@@ -2,6 +2,33 @@
 
 ---
 
+## [v1.6.0] - 2026-03-19 | 引入 Redisson 替代自研分布式锁
+
+### ✨ 新增功能
+
+#### Redisson 客户端配置 (`RedissonConfig`)
+- **新增** `com.hmdp.config.RedissonConfig` 配置类，向 Spring 容器注册 `RedissonClient` Bean。
+- 通过 `config.useSingleServer()` 指向本地 Redis（`redis://127.0.0.1:6379`），与 `application.yaml` 保持一致。
+
+### 🔧 重构
+
+#### 优惠券秒杀加锁机制 (`VoucherOrderServiceImpl`)
+- **废弃** 自研 `SimpleRedisLock`，全面切换为 **Redisson `RLock`**。
+- 注入 `RedissonClient`，通过 `redissonClient.getLock("lock:order:" + userId)` 获取可重入分布式锁对象。
+- 改用 `tryLock()` 无参形式加锁，底层自动启用 **WatchDog（看门狗）** 机制，无需手动指定锁超时时间。
+- 保留 `try-finally` 结构确保 `lock.unlock()` 在任何情况下必定执行。
+
+### 📖 技术说明
+
+| 对比项 | `SimpleRedisLock`（旧） | Redisson `RLock`（新） |
+|---|---|---|
+| 实现方式 | 手写 Lua 脚本 + `SETNX` | Redisson 内置 Lua 脚本 |
+| 可重入支持 | ❌ 不支持 | ✅ 支持（Hash 结构计数） |
+| 自动续期 | ❌ 需手动指定超时 | ✅ WatchDog 每 10s 自动续期至 30s |
+| 宕机自动释放 | ✅（TTL 到期） | ✅（续约停止，30s 内自动过期） |
+
+---
+
 ## [v1.5.0] - 2026-03-19 | 分布式锁容错与原子性升级 (V2.0 & V3.0)
 
 ### ✨ 新增功能
