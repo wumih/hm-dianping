@@ -28,8 +28,7 @@ redis.call('incrby', stockKey, -1)
 -- 3.5.下单（保存用户）sadd orderKey userId
 redis.call('sadd', orderKey, userId)
 
--- 注意：由于我们当前要使用 Java 内存 BlockingQueue 做异步队列
--- 此处暂不开启 xadd（将其注释掉）。将来学到 Redis Stream 的时候把这行解开即可！
--- redis.call('xadd', 'stream.orders', '*', 'userId', userId, 'voucherId', voucherId, 'id', orderId)
+-- 3.6.发送消息到队列中， XADD stream.orders * userId userId voucherId voucherId id orderId
+redis.call('xadd', 'stream.orders', '*', 'userId', userId, 'voucherId', voucherId, 'id', orderId)
 
 return 0

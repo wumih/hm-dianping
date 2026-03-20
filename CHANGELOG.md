@@ -2,6 +2,25 @@
 
 ---
 
+## [v2.0.0] - 2026-03-20 | 秒杀终极架构：Redis Stream 消费者组队列
+
+### ✨ 新增功能
+
+#### 1. Redis Stream 持久化消息队列 (`seckill.lua`)
+- **解封** `seckill.lua` 脚本末尾的 `xadd` 指令，实现 Lua 层面极速资格校验并通过 Redis 底层将明细直写 `stream.orders` 队列。
+- **目的**：彻底告别断电易丢失的 Java 内存阻塞队列，依靠 Redis Stream 的能力获得媲美专业 MQ 的消息持久化与防止漏读的工业级表现。
+
+### 🔧 重构
+
+#### 消费者组双循环老黄牛 (`VoucherOrderServiceImpl`)
+- **彻底废弃** 内存杀手 `ArrayBlockingQueue<VoucherOrder>` 及其相关的存取逻辑。
+- **增强型自动建群（`@PostConstruct`）**：项目启动时不仅拉起单据处理线程池，同时通过 `createGroup` 自动化地尝试在 Redis 环境中建立 `stream.orders` 队列与 `g1` 消费者处理小组。
+- **双循环神级消费逻辑**：
+  - **主循环（接新客）**：使用 `XREADGROUP ... >` 阻塞式（`BLOCK 2000`）等待最新订单，利用 Hutool `BeanUtil` 安全转换实体，依然加上 Aop 代理事务加锁落地 MySQL，最后强推 `XACK` 告知 Redis 安全销账。
+  - **副循环（拯救孤儿单）**：如果主流程写库抛出异常，则立即降级进入内层 `handlePendingList()` 循环。凭借终极游标 `0` 无限爬取 `Pending-List` 这个异常备份表单里的停滞单据，持续重试并发送 `XACK`，构筑了**死不丢单的终极防线**。
+
+---
+
 ## [v1.7.0] - 2026-03-20 | 秒杀性能极致优化：基于阻塞队列的异步架构
 
 ### ✨ 新增功能
