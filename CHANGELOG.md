@@ -2,6 +2,36 @@
 
 ---
 
+## [v2.1.0] - 2026-03-22 | 关注、Feed流核心功能与全链路Bug修复
+
+### ✨ 新增功能
+
+#### 1. 用户关注与取关机制 (`FollowServiceImpl`)
+- 实现对关注用户的双写拦截：数据同步持久化至 MySQL `tb_follow` 并结构化缓存至 Redis `Set` 数据结构，为后续求两个用户的“共同关注”交集（`SINTER`）提供 O(1) 性能保障。
+
+#### 2. Feed 流主动推送与滚动分页拉取 (`BlogServiceImpl`)
+- **推模式推送 (Push)**：在用户发布探店笔记时，利用已建好的 Redis `Set` 集合查询该用户的所有粉丝，并将笔记 ID 以增量形式群发推送至每一位粉丝的 Redis 收件箱（使用 `ZSet` 表，Score 设为发文时间戳）。
+- **拉模式收取 (Pull)**：在个人主页“关注”分页，利用 `ZREVRANGEBYSCORE` 实现极其复杂的游标查询分页机制。完美解决由于传统 `limit offset` 翻页在连续高频发文期产生的**数据漏读或重复读**致命问题。
+
+### 🐛 重点修复 (Bug Fixes) - 着重强调
+
+#### 1. 修复“关注/粉丝数目永久为0不变”问题的底层大坑
+- **症状**：在个人主页“关注”界面，无论关注多少人，UI 始终雷打不动地显示 `关注(0)` 和 `粉丝(0)`。
+- **根因分析**：黑马点评原始的“手机验证码快速注册”功能代码，偷工减料地只往主表 `tb_user` 插入基本数据，**竟完全遗漏了为新用户初始化用来计数子表 `tb_user_info`！**这导致后来只要试图去查用户的行执行 `followee + 1`，整条 UPDATE 语句就会像打在棉花上一样静默失败（影响 0 行）。
+- **极客抢救方案**：在 `FollowServiceImpl` 的关注动作逻辑里追加极具进攻性的抢救包——若检测到 `UPDATE` 影响 0 行，则当机立断直接 `new` 一个全新的 `UserInfo` 实体对象；同时发现在强行绑定主键 ID 存库时被实体类里硬编码的自增生成策略（`IdType.AUTO`）阻挠，一并杀入实体类将其改为 `IdType.INPUT`，一气呵成地执行 `save()`，彻底盘活了这座长期陷入死局的数据孤岛。
+
+#### 2. 修复个人主页“无法点击进入关注人详情和笔记详情”前端失联
+- **症状**：测试过程中，在查阅关注列表发出的动态卡片时，鼠标点击那个人的小号头像毫无反应，狂点他的那篇巨大配图的笔记也弹不出详情页。
+- **根因分析**：原作者前端在此处严重缺斤少两，整个列表竟然活生生漏写了最常用的组件 Vue onClick 互动事件监听。
+- **极客抢救方案**：深入 Nginx 的纯前端静态页面体系，亲自手动为相关的头像和昵称 `div` 逐一补齐 `@click="toOtherInfo(b)"` 方法；为配图与正文标签补齐 `@click="toBlogDetail(b)"` 并在下方的原生 JavaScript 代码块 `methods` 里生生手撕打通了跳往 `other-info.html` 及 `blog-detail.html` 的全部链接流转与防御拦截线路。
+
+#### 3. 解决 Java 21 与 MyBatis-Plus 3.4.3 核心反射击溃报错
+- **症状**：点“取消关注”时后台系统发生极其恐怖的 500 错误：`java.lang.InaccessibleObjectException: Unable to make field private final java.lang.Class java.lang.invoke.SerializedLambda.capturingClass accessible` 引发全线崩溃报错。
+- **根因分析**：环境实在太潮——开发者使用的 Java 21 拥有地表最强的底层模块反射防卫装甲（Strong Encapsulation），遇到老古董框架 MyBatis-Plus 那一手不讲武德强行去解构反射方法名的操作（`LambdaQueryWrapper<Follow>()`），当场就被 JVM 主权击杀。
+- **极客抢救方案**：不再头铁硬拼，极简地将所有被拦截的 Lambda 包装器降维重构为最朴实无华的常规防卡版本：`QueryWrapper<Follow>().eq("user_id", ...)` 采用纯字符串名进行指代，0成本完美、优雅地从侧面绕开了新版 JDK 的这把达摩克利斯之剑。
+
+---
+
 ## [v2.0.0] - 2026-03-20 | 秒杀终极架构：Redis Stream 消费者组队列
 
 ### ✨ 新增功能

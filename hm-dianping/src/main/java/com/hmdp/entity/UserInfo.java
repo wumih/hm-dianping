@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 
 /**
  * <p>
- * 
+ *
  * </p>
  *
  * @author 虎哥
@@ -30,7 +30,7 @@ public class UserInfo implements Serializable {
     /**
      * 主键，用户id
      */
-    @TableId(value = "user_id", type = IdType.AUTO)
+    @TableId(value = "user_id", type = IdType.INPUT)
     private Long userId;
 
     /**
