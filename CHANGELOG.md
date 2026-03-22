@@ -2,6 +2,30 @@
 
 ---
 
+## [v2.2.0] - 2026-03-22 | Redis 进阶应用：BitMap 签到、GEO 搜索与 HLL 统计
+
+### ✨ 新增功能
+
+#### 1. 基于 BitMap 的高性能用户签到 (`UserServiceImpl`)
+- **签到功能 (`sign`)**：利用 Redis `SETBIT` 指令，以用户 ID 和月份为 Key，将日期偏移量设为 1。**优势**：极度节省空间，1 个月仅需约 4 字节即可记录一个用户的签到状态。
+- **连续签到统计 (`signCount`)**：利用 `BITFIELD` 一次性获取本月至今的所有位数据，配合 **位运算 (`& 1` 和 `>>> 1`)** 从今日起向后倒数连续的 1。**核心优化**：避免了循环查询 Redis 的低效操作，整个统计过程在内存中完成，性能达到 O(1) 级别。
+
+#### 2. 基于 GEO 的附近商铺搜索 (`ShopController`)
+- **地理位置搜索**：升级 `queryShopByType` 接口，引入 `GEOSEARCH` 命令（由 Spring Data Redis 2.6.2+ 支持）。
+- **功能增强**：支持根据用户当前的经纬度坐标，自动寻找指定范围（如 5km）内的商铺，并按距离从近到远排序，同时将计算出的精确 `distance` 返回前端。
+
+#### 3. 基于 HyperLogLog 的巨量 UV 统计 (单元测试)
+- **UV 去重计数**：在 `HmDianPingApplicationTests` 中实现 `testHyperLogLog` 验证案例。
+- **核心价值**：演示了如何在 **误差率 < 0.81%** 的前提下，仅用 **16KB** 内存完成 1,000,000 级不重复访客的基数统计（PFADD/PFCOUNT），完美替代了传统的巨型 Set 集合。
+
+### 🔧 优化与调整 (Improvements)
+
+- **Redis 常量统一化**：在 `RedisConstants` 中新增 `USER_SIGN_KEY`，规范化 Key 构建路径。
+- **接口扩展**：在 `UserController` 和 `IUserService` 中平滑接入签到相关业务。
+- **测试覆盖**：新增针对大数据量场景下的 Redis 特种数据结构压力测试。
+
+---
+
 ## [v2.1.0] - 2026-03-22 | 关注、Feed流核心功能与全链路Bug修复
 
 ### ✨ 新增功能
