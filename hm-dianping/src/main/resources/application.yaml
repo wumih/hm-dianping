@@ -18,6 +18,16 @@ spring:
         max-idle: 10
         min-idle: 1
         time-between-eviction-runs: 10s
+    # =========================================================================
+    # [面试架构展示] 哨兵(Sentinel)高可用集群配置示例
+    # 架构说明：当业务流量与可用性要求增大时，废弃上方单点 host/port 配置，启用此段
+    # sentinel:
+    #   master: mymaster
+    #   nodes:
+    #     - 127.0.0.1:27001
+    #     - 127.0.0.1:27002
+    #     - 127.0.0.1:27003
+    # =========================================================================
   jackson:
     default-property-inclusion: non_null # JSON处理时忽略非空字段
 mybatis-plus:
