@@ -74,6 +74,70 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     }
 
     @Override
+    public Result updateBlog(Blog blog) {
+        // 1. 获取当前操作人的身份（从 ThreadLocal 取，无需传参）
+        Long currentUserId = UserHolder.getUser().getId();
+
+        // 2. 去数据库查出这篇博客的完整信息（ORM：一行数据 = 一个 Blog 对象）
+        Blog oldBlog = getById(blog.getId());
+        if (oldBlog == null) {
+            return Result.fail("您要修改的博客不存在！");
+        }
+
+        // 3. 核心权限校验：比对博客的真实作者 ID 与当前登录用户 ID
+        if (!oldBlog.getUserId().equals(currentUserId)) {
+            // 两者不一致，说明是越权操作，直接拒绝
+            return Result.fail("您没有权限修改他人的博客！");
+        }
+
+        // 4. 验证通过，执行更新（MyBatis-Plus 只更新非 null 字段，不会误覆盖未传的列）
+        boolean success = updateById(blog);
+        if (!success) {
+            return Result.fail("修改失败，请重试！");
+        }
+        return Result.ok();
+    }
+
+    @Override
+    public Result deleteBlog(Long id) {
+        // 1. 获取当前登录用户
+        Long currentUserId = UserHolder.getUser().getId();
+
+        // 2. 根据 ID 查询博客
+        Blog blog = getById(id);
+        if (blog == null) {
+            return Result.fail("博客不存在！");
+        }
+
+        // 3. 判断当前用户是否是博客作者
+        if (!blog.getUserId().equals(currentUserId)) {
+            return Result.fail("您没有权限删除他人的博客！");
+        }
+
+        // 4. 删除数据库中的博客
+        boolean isSuccess = removeById(id);
+        if (!isSuccess) {
+            return Result.fail("删除博客失败！");
+        }
+
+        // 5. 清理关联的 Redis 缓存数据
+        // 5.1 从 Redis 中删除该博客的点赞记录集合
+        stringRedisTemplate.delete(BLOG_LIKED_KEY + id);
+
+        // 5.2 从每个粉丝的推送信箱 (Feed流) 中移除该博客
+        // 查出该作者的所有粉丝
+        List<Follow> follows = followService.query().eq("follow_user_id", currentUserId).list();
+        for (Follow follow : follows) {
+            Long fanId = follow.getUserId();
+            String key = FEED_KEY + fanId;
+            // ZSet 移除操作
+            stringRedisTemplate.opsForZSet().remove(key, id.toString());
+        }
+
+        return Result.ok();
+    }
+
+    @Override
     public Result queryHotBlog(Integer current) {
         // 根据用户查询
         Page<Blog> page = query()

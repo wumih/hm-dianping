@@ -27,4 +27,18 @@ public interface IBlogService extends IService<Blog> {
     Result saveBlog(Blog blog);
 
     Result queryBlogOfFollow(Long max, Integer offset);
+
+    /**
+     * 修改博客（含权限校验，只有作者本人可改）
+     * @param blog 包含 id 及要更新字段的博客对象
+     * @return Result
+     */
+    Result updateBlog(Blog blog);
+
+    /**
+     * 删除博客（含权限校验与 Redis 缓存清理）
+     * @param id 博客id
+     * @return Result
+     */
+    Result deleteBlog(Long id);
 }

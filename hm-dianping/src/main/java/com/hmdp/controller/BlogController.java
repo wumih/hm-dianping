@@ -2,12 +2,10 @@ package com.hmdp.controller;
 
 
 import com.hmdp.dto.Result;
-import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.Blog;
 import com.hmdp.service.IBlogService;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.SystemConstants;
-import com.hmdp.utils.UserHolder;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +32,25 @@ public class BlogController {
     @PostMapping
     public Result saveBlog(@RequestBody Blog blog) {
         return blogService.saveBlog(blog);
+    }
+
+    /**
+     * 修改博客（仅作者本人可操作）
+     */
+    @PutMapping
+    public Result updateBlog(@RequestBody Blog blog) {
+        if (blog.getId() == null) {
+            return Result.fail("博客ID不能为空");
+        }
+        return blogService.updateBlog(blog);
+    }
+
+    /**
+     * 删除博客
+     */
+    @DeleteMapping("/{id}")
+    public Result deleteBlog(@PathVariable("id") Long id) {
+        return blogService.deleteBlog(id);
     }
 
     @PutMapping("/like/{id}")

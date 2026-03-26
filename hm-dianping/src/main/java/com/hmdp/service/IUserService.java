@@ -45,4 +45,11 @@ public interface IUserService extends IService<User> {
      */
     Result signCount();
 
+    /**
+     * 登出功能
+     * @param token 用户的token
+     * @return Result
+     */
+    Result logout(String token);
+
 }

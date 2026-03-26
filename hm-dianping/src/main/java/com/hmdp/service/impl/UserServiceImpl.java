@@ -116,6 +116,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     }
 
     @Override
+    public Result logout(String token) {
+        if (cn.hutool.core.util.StrUtil.isBlank(token)) {
+            return Result.ok();
+        }
+        // 1. 删除 Redis 中的用户信息
+        String key = LOGIN_USER_KEY + token;
+        stringRedisTemplate.delete(key);
+
+        // 2. 移除 ThreadLocal 中的用户信息，安全解绑线程
+        UserHolder.removeUser();
+
+        return Result.ok();
+    }
+
+    @Override
     public Result sign() {
         // 1.获取当前登录用户
         Long userId = UserHolder.getUser().getId();

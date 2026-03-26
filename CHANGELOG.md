@@ -2,6 +2,43 @@
 
 ---
 
+## [v2.4.0] - 2026-03-27 | 博客 CRUD 完整闭环与 Agent Skill 工程化实践
+
+### ✨ 新增功能
+
+#### 1. 用户退出登录 (`UserController` / `UserServiceImpl`)
+- **新增** `POST /user/logout` 接口，完成双重注销：
+  - 从请求头 `Authorization` 中提取 Token，调用 `stringRedisTemplate.delete()` 销毁 Redis 中的登录凭证（Key: `login:token:xxx`）。
+  - 调用 `UserHolder.removeUser()` 清除当前线程的 `ThreadLocal` 绑定，防止线程复用时的用户信息"幽灵残留"。
+- **安全设计**：Token 为空时直接返回成功，防止无 Token 请求触发异常。
+- **修改文件**：`UserController.java`、`IUserService.java`、`UserServiceImpl.java`
+
+#### 2. 博客修改功能（防越权编辑）(`BlogController` / `BlogServiceImpl`)
+- **新增** `PUT /blog` 接口，接收 `@RequestBody Blog` 对象（仅需传 `id`、`title`、`content`、`images`）。
+- **双层权限保障**（前后端双锁）：
+  1. 查询数据库旧博客，确认博客存在性。
+  2. 通过 `UserHolder.getUser().getId()` 对比操作人与博客 `userId`，不匹配则 `Result.fail("您没有权限")`。
+- 利用 MyBatis-Plus `updateById` 的**动态 SQL** 特性，只更新前端传入的非 null 字段，不误覆盖未传字段。
+- **修改文件**：`BlogController.java`、`IBlogService.java`、`BlogServiceImpl.java`
+
+#### 3. 博客删除功能（含 Redis 全链路缓存清理）(`BlogController` / `BlogServiceImpl`)
+- **新增** `DELETE /blog/{id}` 接口，完成 MySQL + Redis 双重清理闭环：
+  - **第一层**：`removeById(id)` 删除 `tb_blog` 数据库记录。
+  - **第二层**：`stringRedisTemplate.delete(BLOG_LIKED_KEY + id)` 删除该博客的 Redis 点赞 ZSet 集合，防止脏数据残留。
+  - **第三层**：查询博主所有粉丝，遍历执行 `opsForZSet().remove(FEED_KEY + fanId, id)` 将该博客的 ID 从每位粉丝的 Feed 流收件箱中抹除，保障粉丝动态列表的完整性。
+- **修改文件**：`BlogController.java`、`IBlogService.java`、`BlogServiceImpl.java`
+
+#### 4. 前端联动 Agent Skill 技能包 (`frontend-auto-sync`)
+- **新增** `.agents/skills/frontend-auto-sync/SKILL.md`，为黑马点评项目注入工作区级别的 AI 指令手册。
+- **核心能力**：当 AI 检测到后端新增或修改了 API，但前端缺少对应 UI 时，自动触发该 Skill，按规范生成 Vue 2 前端页面与 Axios 交互代码。
+- **关键设计约束**（固化进 Skill，避免 AI 犯错）：
+  - 强制锁定 **Vue 2 Options API** 语法，杜绝生成 Vue 3 不兼容代码。
+  - 内置前端路径识别策略（基于 Nginx `<nginx-root>/html/hmdp/`，可跨平台）。
+  - 内置决策树（是否需要新建页面 / 是否需要权限 `v-if` / 是否需要确认弹窗）。
+  - **强制要求**：每次生成代码后必须输出《新增前端页面功能说明书》，包含用户交互流程、接口对接详情与权限安全说明。
+
+---
+
 ## [v2.3.0] - 当前 | 面试级演进：Redis 主从架构与高可用哨兵 (Sentinel) 集群部署
 
 ### ✨ 基础设施演进 (Infrastructure as Code)
