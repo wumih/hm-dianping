@@ -9,6 +9,7 @@ import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.User;
 import com.hmdp.mapper.UserMapper;
 import com.hmdp.service.IUserService;
+import com.hmdp.utils.PasswordEncoder;
 import com.hmdp.utils.RegexUtils;
 import com.hmdp.utils.SystemConstants;
 import lombok.extern.slf4j.Slf4j;
@@ -65,54 +66,87 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // TimeUnit.MINUTES 表示单位是 分钟
         stringRedisTemplate.opsForValue().set(LOGIN_CODE_KEY + phone, code, LOGIN_CODE_TTL, TimeUnit.MINUTES);
         // 5. 发送验证码（模拟，打印日志）
+        // 改之后（验证码直接附在响应数据里返回）：
         log.debug("发送短信验证码成功，验证码：{}", code);
-        // 返回 ok
-        return Result.ok();
+        return Result.ok(code);  // ← 把 code 字符串作为 data 带出去
     }
 
     @Override
     public Result login(LoginFormDTO loginForm, HttpSession session) {
-        // ... (existing code replaced with same content for context)
-        // 1.校验手机号
+        // 1. 校验手机号
         String phone = loginForm.getPhone();
         if (RegexUtils.isPhoneInvalid(phone)) {
-            // 2.如果不符合，返回错误信息
             return Result.fail("手机号格式错误！");
         }
-        // 3.从redis获取验证码并校验
-        String cacheCode = stringRedisTemplate.opsForValue().get(LOGIN_CODE_KEY + phone);
+
+        User user;
+        String password = loginForm.getPassword();
         String code = loginForm.getCode();
-        if (cacheCode == null || !cacheCode.equals(code)) {
-            // 不一致，报错
-            return Result.fail("验证码错误");
+
+        if (cn.hutool.core.util.StrUtil.isBlank(code) && cn.hutool.core.util.StrUtil.isNotBlank(password)) {
+            // ========== 密码登录分支 ==========
+            // 2a. 根据手机号查询用户
+            user = query().eq("phone", phone).one();
+            if (user == null) {
+                return Result.fail("该手机号尚未注册，请先通过验证码登录完成注册！");
+            }
+            // 2b. 验证密码
+            if (cn.hutool.core.util.StrUtil.isBlank(user.getPassword())) {
+                return Result.fail("您尚未设置密码，请使用验证码登录后再设置密码！");
+            }
+            if (!PasswordEncoder.matches(user.getPassword(), password)) {
+                return Result.fail("密码错误！");
+            }
+        } else {
+            // ========== 验证码登录分支（原逻辑保留）==========
+            // 2b. 从 Redis 获取验证码并校验
+            String cacheCode = stringRedisTemplate.opsForValue().get(LOGIN_CODE_KEY + phone);
+            if (cacheCode == null || !cacheCode.equals(code)) {
+                return Result.fail("验证码错误");
+            }
+            // 3. 查询用户，不存在则自动注册
+            user = query().eq("phone", phone).one();
+            if (user == null) {
+                user = createUserWithPhone(phone);
+            }
         }
 
-        // 4.一致，根据手机号查询用户 select * from tb_user where phone = ?
-        User user = query().eq("phone", phone).one();
-
-        // 5.判断用户是否存在
-        if (user == null) {
-            // 6.不存在，创建新用户并保存
-            user = createUserWithPhone(phone);
-        }
-
-        // 7.保存用户信息到 redis中
-        // 7.1.随机生成token，作为登录令牌
+        // 4. 登录成功，生成 Token 并存入 Redis
         String token = UUID.randomUUID().toString(true);
-        // 7.2.将User对象转为HashMap存储
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
         Map<String, Object> userMap = BeanUtil.beanToMap(userDTO, new HashMap<>(),
                 CopyOptions.create()
                         .setIgnoreNullValue(true)
                         .setFieldValueEditor((fieldName, fieldValue) -> fieldValue.toString()));
-        // 7.3.存储
         String tokenKey = LOGIN_USER_KEY + token;
         stringRedisTemplate.opsForHash().putAll(tokenKey, userMap);
-        // 7.4.设置token有效期
         stringRedisTemplate.expire(tokenKey, LOGIN_USER_TTL, TimeUnit.MINUTES);
 
-        // 8.返回token
         return Result.ok(token);
+    }
+
+    @Override
+    public Result setPassword(String phone, String newPassword) {
+        // 1. 校验手机号格式
+        if (RegexUtils.isPhoneInvalid(phone)) {
+            return Result.fail("手机号格式错误！");
+        }
+        // 2. 校验密码长度（至少 6 位）
+        if (cn.hutool.core.util.StrUtil.isBlank(newPassword) || newPassword.length() < 6) {
+            return Result.fail("密码长度不能少于6位！");
+        }
+        // 3. 查询用户是否存在
+        User user = query().eq("phone", phone).one();
+        if (user == null) {
+            return Result.fail("用户不存在！");
+        }
+        // 4. 加密并更新密码
+        String encodedPassword = PasswordEncoder.encode(newPassword);
+        boolean success = update().eq("phone", phone).set("password", encodedPassword).update();
+        if (!success) {
+            return Result.fail("密码设置失败，请重试！");
+        }
+        return Result.ok();
     }
 
     @Override

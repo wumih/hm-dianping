@@ -2,6 +2,36 @@
 
 ---
 
+## [v2.5.0] - 2026-03-28 | 密码登录全链路实现与演示体验优化
+
+### ✨ 新增功能
+
+#### 1. 密码登录分支 (`UserServiceImpl` / `login()`)
+- **重构** `login()` 方法，在原有验证码登录逻辑基础上，新增密码登录分支，两种方式共存互不影响。
+- **智能路由判断**：前端只需传 `phone` + `password`（不传 `code`）即可触发密码登录分支；传 `code` 则走原验证码逻辑。
+- **密码登录三层防护**：
+  1. 用户不存在 → 返回"该手机号尚未注册，请先通过验证码登录完成注册"
+  2. 用户未设置密码 → 返回"您尚未设置密码，请使用验证码登录后再设置密码"
+  3. 密码比对失败（`PasswordEncoder.matches()`）→ 返回"密码错误"
+- **修改文件**：`UserServiceImpl.java`
+
+#### 2. 设置/修改密码接口 (`POST /user/password`)
+- **新增** `POST /user/password?phone=xxx&newPassword=xxx` 接口。
+- **安全防护**：接口受 `LoginInterceptor` 拦截保护，未登录用户直接返回 401，无法调用，杜绝匿名越权修改他人密码。
+- **服务层逻辑** (`setPassword()`)：手机号格式校验 → 密码长度≥6位校验 → 用户存在性校验 → `PasswordEncoder.encode()` 加盐加密 → MyBatis-Plus 链式 `update()` 写库。
+- **修改文件**：`IUserService.java`、`UserServiceImpl.java`、`UserController.java`
+
+### 🔧 优化
+
+#### 演示体验优化：验证码透传 (`sendCode()`)
+- **场景**：本地开发/演示环境中，真实短信 SDK 未接入，验证码仅打印在 IDEA 日志面板，面试官无法看到。
+- **改动**：将 `sendCode` 响应从 `Result.ok()` 改为 `Result.ok(code)`，在 HTTP 响应的 `data` 字段中附带验证码明文（同时保留原有日志输出）。
+- **配套前端改动**：`login.html` 的 `sendCode()` 方法接住响应中的 `data`，自动填入验证码输入框并弹出提示。
+- **设计说明**：这是标准的"演示/生产模式差异化"实践，接入真实短信 SDK 时仅需改回 `Result.ok()` 一行即可无缝切换。
+- **修改文件**：`UserServiceImpl.java`（后端）、`login.html`（前端 Nginx）
+
+---
+
 ## [v2.4.0] - 2026-03-27 | 博客 CRUD 完整闭环与 Agent Skill 工程化实践
 
 ### ✨ 新增功能

@@ -109,4 +109,17 @@ public class UserController {
     public Result signCount(){
         return userService.signCount();
     }
+
+    /**
+     * 设置/修改密码
+     * 调用前须已通过验证码完成身份验证并登录
+     * @param phone 手机号（用于定位用户）
+     * @param newPassword 新密码（明文，至少6位）
+     */
+    @PostMapping("/password")
+    public Result setPassword(
+            @RequestParam("phone") String phone,
+            @RequestParam("newPassword") String newPassword) {
+        return userService.setPassword(phone, newPassword);
+    }
 }

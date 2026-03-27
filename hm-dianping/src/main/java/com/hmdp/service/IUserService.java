@@ -52,4 +52,12 @@ public interface IUserService extends IService<User> {
      */
     Result logout(String token);
 
+    /**
+     * 设置/修改密码
+     * @param phone 手机号（用于定位用户）
+     * @param newPassword 明文新密码
+     * @return Result
+     */
+    Result setPassword(String phone, String newPassword);
+
 }
