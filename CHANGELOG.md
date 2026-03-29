@@ -2,6 +2,22 @@
 
 ---
 
+## [v2.7.0] - 2026-03-29 | 商铺分类列表 Redis 缓存
+
+### ✨ 新增功能
+
+#### 商铺分类列表缓存 (`ShopTypeServiceImpl` / `queryTypeList()`)
+- **新增** `IShopTypeService.queryTypeList()` 方法，将缓存逻辑下沉至 Service 层，Controller 仅做委托调用，符合职责单一原则。
+- **实现标准旁路缓存（Cache-Aside）三步走**：
+  1. ① 先查 Redis（Key: `cache:shop:type:list`）→ 命中则反序列化后直接返回（约 <1ms）
+  2. ② 未命中则查 MySQL（`query().orderByAsc("sort").list()`）
+  3. ③ 查到数据后序列化写入 Redis（TTL: 30 分钟），再返回结果
+- **数据结构选型**：`String`（JSON 整体序列化）。分类列表全局唯一，无需拼接 ID，Key 本身即完整唯一标识，简洁高效。
+- **避免缓存穿透**：若数据库返回空列表则直接报错，不写入空缓存（分类数据属于静态参考数据，空列表代表异常而非正常业务逻辑）。
+- **修改文件**：`RedisConstants.java`（新增常量）、`IShopTypeService.java`、`ShopTypeServiceImpl.java`、`ShopTypeController.java`
+
+---
+
 ## [v2.6.0] - 2026-03-29 | 用户个人资料修改全链路实现
 
 ### ✨ 新增功能
