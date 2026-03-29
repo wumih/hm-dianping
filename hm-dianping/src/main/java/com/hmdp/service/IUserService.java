@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.hmdp.dto.LoginFormDTO;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.User;
+import com.hmdp.entity.UserInfo;
 
 import javax.servlet.http.HttpSession;
 
@@ -59,5 +60,18 @@ public interface IUserService extends IService<User> {
      * @return Result
      */
     Result setPassword(String phone, String newPassword);
+
+    /**
+     * 修改用户基础资料（昵称、头像）
+     * @param user 只需包含 nickName 和 icon 字段
+     * @param token 当前登录的 Token，用于同步更新 Redis
+     */
+    Result updateMe(User user, String token);
+
+    /**
+     * 修改用户详细资料（城市、个人介绍、性别、生日）
+     * @param userInfo UserInfo 对象（不需要传 userId，内部自动从 ThreadLocal 取）
+     */
+    Result updateUserInfo(UserInfo userInfo);
 
 }

@@ -74,6 +74,23 @@ public class UserController {
         return Result.ok(user);
     }
 
+    /**
+     * 修改当前用户基础资料（昵称、头像）
+     */
+    @PutMapping("/me")
+    public Result updateMe(@RequestBody User user, HttpServletRequest request) {
+        String token = request.getHeader("authorization");
+        return userService.updateMe(user, token);
+    }
+
+    /**
+     * 修改当前用户详细资料（城市、个人介绍、性别、生日）
+     */
+    @PutMapping("/info")
+    public Result updateUserInfo(@RequestBody UserInfo userInfo) {
+        return userService.updateUserInfo(userInfo);
+    }
+
     @GetMapping("/info/{id}")
     public Result info(@PathVariable("id") Long userId){
         // 查询详情

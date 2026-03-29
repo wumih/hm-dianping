@@ -7,7 +7,9 @@ import com.hmdp.dto.LoginFormDTO;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.User;
+import com.hmdp.entity.UserInfo;
 import com.hmdp.mapper.UserMapper;
+import com.hmdp.service.IUserInfoService;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.PasswordEncoder;
 import com.hmdp.utils.RegexUtils;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.concurrent.TimeUnit;
 
@@ -46,6 +49,9 @@ import com.hmdp.utils.UserHolder;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IUserService {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private IUserInfoService userInfoService;
 
     @Override
     public Result sendCode(String phone, HttpSession session) {
@@ -220,6 +226,48 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             num >>>= 1;
         }
         return Result.ok(count);
+    }
+
+    @Override
+    public Result updateMe(User user, String token) {
+        // 1. 从 ThreadLocal 取当前登录用户的 ID
+        Long userId = UserHolder.getUser().getId();
+        // 2. 只更新允许的字段：nickName 和 icon，并锁定操作人为当前用户
+        User update = new User();
+        update.setId(userId);
+        if (cn.hutool.core.util.StrUtil.isNotBlank(user.getNickName())) {
+            update.setNickName(user.getNickName());
+        }
+        if (cn.hutool.core.util.StrUtil.isNotBlank(user.getIcon())) {
+            update.setIcon(user.getIcon());
+        }
+        // 3. 更新 MySQL
+        boolean success = updateById(update);
+        if (!success) {
+            return Result.fail("修改失败，请重试！");
+        }
+        // 4. 同步更新 Redis 中的用户 Hash，使 /user/me 立即返回新数据
+        //    Redis Key 格式：login:token:{token}
+        String tokenKey = LOGIN_USER_KEY + token;
+        if (cn.hutool.core.util.StrUtil.isNotBlank(user.getNickName())) {
+            stringRedisTemplate.opsForHash().put(tokenKey, "nickName", user.getNickName());
+        }
+        if (cn.hutool.core.util.StrUtil.isNotBlank(user.getIcon())) {
+            stringRedisTemplate.opsForHash().put(tokenKey, "icon", user.getIcon());
+        }
+        return Result.ok();
+    }
+
+    @Override
+    public Result updateUserInfo(UserInfo userInfo) {
+        // 1. 从 ThreadLocal 获取当前登录用户 ID
+        Long userId = UserHolder.getUser().getId();
+        // 2. 将 userId 设入实体（tb_user_info 的主键是 user_id，必须手动设置）
+        userInfo.setUserId(userId);
+        // 3. saveOrUpdate：若 user_id 已存在则 UPDATE，不存在则 INSERT
+        //    解决了新注册用户没有 user_info 记录的问题
+        boolean success = userInfoService.saveOrUpdate(userInfo);
+        return success ? Result.ok() : Result.fail("修改失败，请重试！");
     }
 
     private User createUserWithPhone(String phone) {

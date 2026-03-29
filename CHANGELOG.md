@@ -2,6 +2,25 @@
 
 ---
 
+## [v2.6.0] - 2026-03-29 | 用户个人资料修改全链路实现
+
+### ✨ 新增功能
+
+#### 1. 修改用户基础资料接口 (`PUT /user/me`)
+- **新增** `PUT /user/me` 接口，支持修改当前登录用户的**昵称（nickName）**和**头像（icon）**。
+- **安全设计**：无需前端传 `userId`，服务层通过 `UserHolder.getUser().getId()` 从 `ThreadLocal` 自动取用，防止越权修改他人资料。
+- **字段白名单**：仅允许更新 `nickName` 和 `icon` 两个字段，其他字段完全忽略，规避了恶意字段注入。
+- **双写同步**：MySQL 更新成功后，立即通过 `stringRedisTemplate.opsForHash().put()` 同步更新 Redis Hash（Key: `login:token:{token}`），保证 `GET /user/me` 接口不存在脏缓存，立即返回最新数据。
+- **修改文件**：`UserController.java`、`IUserService.java`、`UserServiceImpl.java`
+
+#### 2. 修改用户详细资料接口 (`PUT /user/info`)
+- **新增** `PUT /user/info` 接口，支持修改当前登录用户的**城市、个人介绍、性别、生日**等 `tb_user_info` 表字段。
+- **SaveOrUpdate 兼容设计**：服务层使用 `userInfoService.saveOrUpdate(userInfo)` 执行 UPSERT 操作，完美兼容新注册用户无 `user_info` 记录和老用户更新两种场景，无需预先检查记录是否存在。
+- **主键自动注入**：服务层内部从 `ThreadLocal` 取出 `userId` 并通过 `userInfo.setUserId(userId)` 注入，彻底杜绝客户端伪造 `userId` 的越权攻击面。
+- **修改文件**：`UserController.java`、`IUserService.java`、`UserServiceImpl.java`
+
+---
+
 ## [v2.5.0] - 2026-03-28 | 密码登录全链路实现与演示体验优化
 
 ### ✨ 新增功能
