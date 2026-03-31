@@ -51,6 +51,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private ISeckillVoucherService seckillVoucherService;
 
     @Resource
+    private com.hmdp.service.IVoucherService voucherService;
+
+    @Resource
     private RedisIdWorker redisIdWorker;
 
     @Resource
@@ -246,5 +249,47 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
         // 7. 正式写入数据库创建订单记录
         save(voucherOrder);
+    }
+
+    @Override
+    public Result queryMyOrders(Integer current) {
+        // 1. 获取当前用户
+        Long userId = UserHolder.getUser().getId();
+
+        // 2. 分页查询
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<VoucherOrder> pageInfo = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(current, 10);
+        query().eq("user_id", userId).orderByDesc("create_time").page(pageInfo);
+
+        // 3. 拿到订单基本数据 (长得全是无意义纯数字 ID，前端没法看)
+        java.util.List<VoucherOrder> records = pageInfo.getRecords();
+        if (records == null || records.isEmpty()) {
+            return Result.ok(java.util.Collections.emptyList());
+        }
+
+        // 4. ================= 全新升级：组装高级显示数据 =================
+        java.util.List<com.hmdp.dto.VoucherOrderVO> voList = new java.util.ArrayList<>();
+        for (VoucherOrder order : records) {
+            com.hmdp.dto.VoucherOrderVO vo = new com.hmdp.dto.VoucherOrderVO();
+            // ① 复制订单基础属性 (ID 强行转为 String 防网页渲染崩坏)
+            vo.setId(String.valueOf(order.getId()));
+            vo.setVoucherId(order.getVoucherId());
+            vo.setStatus(order.getStatus());
+            vo.setCreateTime(order.getCreateTime());
+
+            // ② 重头戏：查询此订单对应的真正的代金券是谁
+            com.hmdp.entity.Voucher voucher = voucherService.getById(order.getVoucherId());
+            if (voucher != null) {
+                vo.setTitle(voucher.getTitle());
+                vo.setSubTitle(voucher.getSubTitle());
+                vo.setPayValue(voucher.getPayValue());
+                vo.setActualValue(voucher.getActualValue());
+            } else {
+                vo.setTitle("神秘代金券（已失效）");
+            }
+            voList.add(vo);
+        }
+
+        // 5. 将这堆包装精美的中文字段集合，华丽地抛还给前端！
+        return Result.ok(voList);
     }
 }

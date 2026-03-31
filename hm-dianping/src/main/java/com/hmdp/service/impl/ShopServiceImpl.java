@@ -76,6 +76,10 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 
     @Override
     public Result queryShopByType(Integer typeId, Integer current, Double x, Double y) {
+        // === 加入两行强制置空代码，屏蔽前端传来的 GPS 坐标 ===
+        x = null;
+        y = null;
+
         // 1.是否需要根据距离查询
         if (x == null || y == null) {
             // 不需要根据距离查询，直接数据库查询
@@ -96,7 +100,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
                 .search(
                         key,
                         GeoReference.fromCoordinate(x, y),
-                        new Distance(5000),
+                        new Distance(5000000),
                         RedisGeoCommands.GeoSearchCommandArgs.newGeoSearchArgs().includeDistance().limit(end)
                 );
 
