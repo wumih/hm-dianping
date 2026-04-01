@@ -2,6 +2,17 @@
 
 ---
 
+## [v2.9.0] - 2026-04-02 | 探店笔记全链路评论系统与前端 UI 深度改造
+
+### ✨ 新增功能
+
+#### 探店笔记多级评论架构 (`BlogComments`)
+- **新增** `tb_blog_comments` 表及对应实体类、Mapper，采用 `parent_id` 配合 `answer_id` 进行树状回复折叠及楼中楼回复防迷路的高阶数据模型设计。
+- **服务端实现**：新增 `saveBlogComment` 采用极简参数接收所有级评论；新增 `queryBlogComments` 提供完整的分页拉取能力，在后端拼装楼主红标、精确识别被回复人并组装至 `BlogCommentsVO` 下发给前端，完美隔离数据库单表结构和业务展示逻辑。
+- **前端深度集成**：彻底铲除 `blog-detail.html` 的死板假数据，利用 Vue.js 动态渲染出带有真实头像及互动机制的评论列表，并使用响应式弹框组件 `el-dialog` 实现沉浸式的独立评论提交视图。
+- **修改文件**：`BlogComments.java`、`BlogCommentsVO.java`、`BlogCommentsController.java`、`BlogCommentsMapper.java`、`IBlogCommentsService.java`、`BlogCommentsServiceImpl.java`、`tb_blog_comments.sql`、`blog-detail.html`
+
+
 ## [v2.8.0] - 2026-04-01 | 查询我的订单闭环与商铺全量分页修复
 
 ### ✨ 新增功能

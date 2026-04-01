@@ -12,11 +12,8 @@ import java.time.LocalDateTime;
 
 /**
  * <p>
- * 
+ *  探店笔记评论
  * </p>
- *
- * @author 虎哥
- * @since 2021-12-22
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
@@ -38,7 +35,7 @@ public class BlogComments implements Serializable {
     private Long userId;
 
     /**
-     * 探店id
+     * 探店笔记id
      */
     private Long blogId;
 
@@ -65,7 +62,7 @@ public class BlogComments implements Serializable {
     /**
      * 状态，0：正常，1：被举报，2：禁止查看
      */
-    private Boolean status;
+    private Integer status;
 
     /**
      * 创建时间
@@ -76,6 +73,4 @@ public class BlogComments implements Serializable {
      * 更新时间
      */
     private LocalDateTime updateTime;
-
-
 }
