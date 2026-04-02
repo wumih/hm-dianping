@@ -6,8 +6,8 @@
 
 
 🔗 **相关项目**：
-- [前端项目仓库](你的前端仓库地址)
-- [后端项目仓库](当前仓库地址)
+- [前端项目仓库](https://github.com/wumih/hm-dianping-frontend.git)
+- [后端项目仓库](https://github.com/wumih/hm-dianping.git)
 
 
 ## 🌟 核心技术亮点
