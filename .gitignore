@@ -1,0 +1,29 @@
+# --- Compiled files ---
+target/
+*.class
+
+# --- IntelliJ IDEA ---
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# --- VS Code ---
+.vscode/
+
+# --- Build tools ---
+.mvn/
+.gradle/
+build/
+
+# --- Log files ---
+*.log
+logs/
+
+# --- OS temporary files ---
+.DS_Store
+Thumbs.db
+
+# --- Environment/Local Config ---
+# application-local.yml
+# .env
