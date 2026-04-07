@@ -1,6 +1,8 @@
 server:
   port: 8081
 spring:
+  profiles:
+    active: dev # 默认使用开发环境 (不加载 application-test.yaml 的参数)
   application:
     name: hmdp
   datasource:

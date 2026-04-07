@@ -1,0 +1,9 @@
+spring:
+  redis:
+    lettuce:
+      pool:
+        # === 压测专用：打破资源束缚，最大化吞吐性能 ===
+        max-active: 200   # 扩充常驻连接
+        max-idle: 50      # 最高保留空闲
+        min-idle: 10      # 最低保留空闲
+        max-wait: 2000ms  # 设置排队等待生命线，防止 Tomcat 假死
