@@ -121,6 +121,64 @@ public class HmDianPingApplicationTests {
         }
     }
 
+    @Resource
+    private com.hmdp.service.IUserService userService;
+
+    @Test
+    void testMultiLogin() throws java.io.IOException {
+        // 1. 获取至少1000个用户，如果不够则直接创建
+        List<com.hmdp.entity.User> userList = userService.list();
+        if (userList == null || userList.size() < 1000) {
+            System.out.println("数据库中用户数量不足1000，正在自动生成充当群演...");
+            List<com.hmdp.entity.User> newUsers = new ArrayList<>();
+            for (int i = 0; i < 1000; i++) {
+                com.hmdp.entity.User u = new com.hmdp.entity.User();
+                u.setPhone("138" + cn.hutool.core.util.RandomUtil.randomNumbers(8));
+                u.setNickName("user_" + cn.hutool.core.util.RandomUtil.randomString(6));
+                newUsers.add(u);
+            }
+            userService.saveBatch(newUsers);
+            userList = userService.list();
+        }
+
+        System.out.println("总用户数：" + userList.size());
+        // 取前1000个
+        List<com.hmdp.entity.User> targetUsers = userList.stream().limit(1000).collect(Collectors.toList());
+
+        // 输出的文件路径（放在项目根目录即可方便找到）
+        java.io.File file = new java.io.File("tokens.txt");
+        System.out.println("Token将会输出到文件: " + file.getAbsolutePath());
+        java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(file));
+
+        System.out.println("========== 开始生成 Token 并将状态写入 Redis =========");
+        int count = 0;
+        for (com.hmdp.entity.User user : targetUsers) {
+            // 2. 生成 token
+            String token = cn.hutool.core.lang.UUID.randomUUID().toString(true);
+            UserDTO userDTO = cn.hutool.core.bean.BeanUtil.copyProperties(user, UserDTO.class);
+            Map<String, Object> userMap = cn.hutool.core.bean.BeanUtil.beanToMap(userDTO, new java.util.HashMap<>(),
+                    cn.hutool.core.bean.copier.CopyOptions.create()
+                            .setIgnoreNullValue(true)
+                            .setFieldValueEditor((fieldName, fieldValue) -> fieldValue != null ? fieldValue.toString() : ""));
+
+            // 3. 存入 Redis (设置久一点，压测专用)
+            String tokenKey = RedisConstants.LOGIN_USER_KEY + token;
+            stringRedisTemplate.opsForHash().putAll(tokenKey, userMap);
+            // 这里设置1天过期足够压测使用了
+            stringRedisTemplate.expire(tokenKey, 24, java.util.concurrent.TimeUnit.HOURS);
+
+            // 4. 写入本地 TXT 文件
+            writer.println(token);
+            count++;
+            if (count % 100 == 0) {
+                System.out.println("已生成: " + count + " 个Token并存入Redis");
+            }
+        }
+        writer.flush();
+        writer.close();
+        System.out.println("========== 完工！1000 个 Token 已经保存在根目录的 tokens.txt 中 =========");
+    }
+
     @Test
     void testHyperLogLog() {
         String[] users = new String[1000];
